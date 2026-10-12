@@ -408,7 +408,7 @@
     <script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/l10n/es.js"></script>
 
-<script>
+    <script>
         const WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbw8Yu2YTvkXSNBL-Co-LbtgqWLlEtXNqhAyCa9IXuDZxbhqF3IdDLqGQYywAn43ofw/exec"; 
 
         function abrirModal() { document.getElementById("modal-tyc").style.display = "flex"; }
@@ -675,8 +675,21 @@
                             if(res.ok && res.datos && res.datos.length > 0) {
                                 contenedor.innerHTML = '';
                                 res.datos.forEach(ev => {
-                                    const dateParts = String(ev.fecha).split("-");
-                                    const shortDate = dateParts.length === 3 ? `${dateParts[2]}/${dateParts[1]}` : ev.fecha;
+                                    
+                                    // Blindaje de fecha: Si falla el split, mostramos la fecha como venga
+                                    let shortDate = ev.fecha;
+                                    try {
+                                        const dateString = String(ev.fecha);
+                                        if (dateString.includes("-")) {
+                                            const dateParts = dateString.split("-");
+                                            if (dateParts.length === 3) {
+                                                shortDate = `${dateParts[2]}/${dateParts[1]}`;
+                                            }
+                                        }
+                                    } catch(e) {
+                                        shortDate = "Próximamente";
+                                    }
+                                    
                                     const hora = ev.hora || "19:00";
 
                                     const div = document.createElement("div");
@@ -701,11 +714,14 @@
                                     div.addEventListener("click", () => {
                                         document.querySelectorAll(".evento-card").forEach(c => c.classList.remove("selected"));
                                         div.classList.add("selected");
-                                        document.getElementById("hidden-id-evento").value = ev.id_evento;
-                                        document.getElementById("hidden-fecha-evento").value = ev.fecha;
-                                        document.getElementById("hidden-nombre-evento").value = ev.nombre;
+                                        document.getElementById("hidden-id-evento").value = ev.id_evento || "EV-GEN";
+                                        document.getElementById("hidden-fecha-evento").value = ev.fecha || "0000-00-00";
+                                        document.getElementById("hidden-nombre-evento").value = ev.nombre || "Evento";
+                                        
                                         const lugares = document.querySelector("#form-evento input[name='comensales']");
-                                        lugares.max = Math.min(20, ev.disponibles);
+                                        // Blindaje: Asegurar que max sea un número válido
+                                        const disp = parseInt(ev.disponibles, 10);
+                                        lugares.max = !isNaN(disp) && disp > 0 ? Math.min(20, disp) : 20;
                                     });
                                     contenedor.appendChild(div);
                                 });
@@ -714,7 +730,7 @@
                             }
                         } catch (errorParseo) {
                             console.error("Error al procesar los datos de Google:", textoBruto);
-                            contenedor.innerHTML = '<p class="info-box">Error al leer los datos. Revise la consola del navegador.</p>';
+                            contenedor.innerHTML = '<p class="info-box">Las colecciones se están actualizando. Intenta de nuevo en unos minutos.</p>';
                         }
                     })
                     .catch(err => {
