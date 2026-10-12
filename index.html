@@ -408,7 +408,7 @@
     <script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/l10n/es.js"></script>
 
-    <script>
+<script>
         const WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbw8Yu2YTvkXSNBL-Co-LbtgqWLlEtXNqhAyCa9IXuDZxbhqF3IdDLqGQYywAn43ofw/exec"; 
 
         function abrirModal() { document.getElementById("modal-tyc").style.display = "flex"; }
@@ -632,8 +632,8 @@
                 .then(res => res.json())
                 .then(res => {
                     if(res.ok && res.datos) {
-                        const inicio = res.datos.ROSCAS_INICIO || "2027-01-02";
-                        const fin = res.datos.ROSCAS_FIN || "2027-01-14";
+                        const inicio = res.datos.ROSCAS_INICIO || "2026-11-01";
+                        const fin = res.datos.ROSCAS_FIN || "2026-11-30";
                         flatpickr("#fp-rosca", { locale: "es", dateFormat: "Y-m-d", minDate: inicio, maxDate: fin, disableMobile: true });
                     }
                 }).catch(() => { flatpickr("#fp-rosca", { locale: "es", dateFormat: "Y-m-d", minDate: "today", disableMobile: true }); });
@@ -665,53 +665,62 @@
 
             function cargarEventos() {
                 const contenedor = document.getElementById("contenedor-colecciones");
-                fetch(WEBHOOK_URL + "?accion=obtenerEventos").then(res => res.json()).then(res => {
-                    if(res.ok && res.datos.length > 0) {
-                        contenedor.innerHTML = '';
-                        res.datos.forEach(ev => {
-                            const dateParts = String(ev.fecha).split("-");
-                            const shortDate = dateParts.length === 3 ? `${dateParts[2]}/${dateParts[1]}` : ev.fecha;
-                            const hora = ev.hora || "19:00";
+                const webhookActivo = WEBHOOK_URL + "?accion=obtenerEventos"; 
 
-                            const div = document.createElement("div");
-                            div.className = "evento-card";
-                            div.innerHTML = `
-                                <div class="evento-info">
-                                    <h4></h4>
-                                    <p></p>
-                                </div>
-                                <div class="evento-meta">
-                                    <div class="meta-box">
-                                        <span>Fecha</span>
-                                        <strong></strong>
-                                    </div>
-                                    <div class="meta-box lugares">
-                                        <span>Quedan</span>
-                                        <strong></strong>
-                                        <span style="margin-top:2px; margin-bottom:0;">Lugares</span>
-                                    </div>
-                                </div>
-                            `;
-                            div.querySelector("h4").textContent = ev.nombre;
-                            div.querySelector(".evento-info p").textContent = `DEGUSTACIÓN EXCLUSIVA (${hora} HRS)`;
-                            div.querySelectorAll(".meta-box strong")[0].textContent = shortDate;
-                            div.querySelectorAll(".meta-box strong")[1].textContent = ev.disponibles;
+                fetch(webhookActivo)
+                    .then(res => res.text()) 
+                    .then(textoBruto => {
+                        try {
+                            const res = JSON.parse(textoBruto);
+                            if(res.ok && res.datos && res.datos.length > 0) {
+                                contenedor.innerHTML = '';
+                                res.datos.forEach(ev => {
+                                    const dateParts = String(ev.fecha).split("-");
+                                    const shortDate = dateParts.length === 3 ? `${dateParts[2]}/${dateParts[1]}` : ev.fecha;
+                                    const hora = ev.hora || "19:00";
 
-                            div.addEventListener("click", () => {
-                                document.querySelectorAll(".evento-card").forEach(c => c.classList.remove("selected"));
-                                div.classList.add("selected");
-                                document.getElementById("hidden-id-evento").value = ev.id_evento;
-                                document.getElementById("hidden-fecha-evento").value = ev.fecha;
-                                document.getElementById("hidden-nombre-evento").value = ev.nombre;
-                                const lugares = document.querySelector("#form-evento input[name='comensales']");
-                                lugares.max = Math.min(20, ev.disponibles);
-                            });
-                            contenedor.appendChild(div);
-                        });
-                    } else { contenedor.innerHTML = '<p class="info-box">No hay colecciones disponibles por el momento.</p>'; }
-                }).catch(() => {
-                    contenedor.innerHTML = '<p class="info-box">No pudimos cargar las colecciones. Revisa tu conexión e intenta de nuevo.</p>';
-                });
+                                    const div = document.createElement("div");
+                                    div.className = "evento-card";
+                                    div.innerHTML = `
+                                        <div class="evento-info">
+                                            <h4>${ev.nombre}</h4>
+                                            <p>DEGUSTACIÓN EXCLUSIVA (${hora} HRS)</p>
+                                        </div>
+                                        <div class="evento-meta">
+                                            <div class="meta-box">
+                                                <span>Fecha</span>
+                                                <strong>${shortDate}</strong>
+                                            </div>
+                                            <div class="meta-box lugares">
+                                                <span>Quedan</span>
+                                                <strong>${ev.disponibles}</strong>
+                                                <span style="margin-top:2px; margin-bottom:0;">Lugares</span>
+                                            </div>
+                                        </div>
+                                    `;
+                                    div.addEventListener("click", () => {
+                                        document.querySelectorAll(".evento-card").forEach(c => c.classList.remove("selected"));
+                                        div.classList.add("selected");
+                                        document.getElementById("hidden-id-evento").value = ev.id_evento;
+                                        document.getElementById("hidden-fecha-evento").value = ev.fecha;
+                                        document.getElementById("hidden-nombre-evento").value = ev.nombre;
+                                        const lugares = document.querySelector("#form-evento input[name='comensales']");
+                                        lugares.max = Math.min(20, ev.disponibles);
+                                    });
+                                    contenedor.appendChild(div);
+                                });
+                            } else { 
+                                contenedor.innerHTML = '<p class="info-box">No hay colecciones disponibles por el momento.</p>'; 
+                            }
+                        } catch (errorParseo) {
+                            console.error("Error al procesar los datos de Google:", textoBruto);
+                            contenedor.innerHTML = '<p class="info-box">Error al leer los datos. Revise la consola del navegador.</p>';
+                        }
+                    })
+                    .catch(err => {
+                        console.error("Error de conexión:", err);
+                        contenedor.innerHTML = '<p class="info-box">No pudimos cargar las colecciones. Revisa tu conexión e intenta de nuevo.</p>';
+                    });
             }
 
             forms.forEach(form => {
